@@ -24,7 +24,7 @@ def main():
     infantId = '16963'
     start_index = 2704
     end_index = start_index + 18929
-    csv_file_path = 'E:/project/infantVision/data/fixation sheet/child_20160209_17358.csv'
+    csv_file_path = 'data/fixation sheet/child_20160209_17358.csv'
 
     df = pd.read_csv(csv_file_path, header=5)
     X = 'porX'

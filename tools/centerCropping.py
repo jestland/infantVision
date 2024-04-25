@@ -33,7 +33,7 @@ def main():
         croppingSize128 = 128
         croppingSize480 = 240
 
-        id_path = 'E:/project/infantVision/data/' + infantId
+        id_path = 'data/' + infantId
         crop_size64 = (croppingSize64, croppingSize64)
         crop_size128 = (croppingSize128, croppingSize128)
         crop_size480 = (croppingSize480, croppingSize480)
@@ -41,7 +41,7 @@ def main():
         dataSize = len(os.listdir(id_path))
         imgIndex = 0
         for i in range(dataSize):
-            image_file_path = 'E:/project/infantVision/data/'+ infantId +'/img_' + str(i+1) + '.jpg'
+            image_file_path = 'data/'+ infantId +'/img_' + str(i+1) + '.jpg'
             image = read_image_file(image_file_path)
             x = image.shape[1] / 2
             y = image.shape[0] / 2
@@ -50,13 +50,13 @@ def main():
             fixation_cropped_image480 = fixation_crop(image, x, y, crop_size480)
 
             imgIndex+=1
-            savepath_fixation64 = os.path.join('E:/project/infantVision/data/center cropping/'
+            savepath_fixation64 = os.path.join('data/center cropping/'
                                     + str(croppingSize64) + 'x' + str(croppingSize64) +'/'
                                     + infantId + '/', f'{imgIndex}.jpg')
-            savepath_fixation128 = os.path.join('E:/project/infantVision/data/center cropping/'
+            savepath_fixation128 = os.path.join('data/center cropping/'
                                              + str(croppingSize128) + 'x' + str(croppingSize128) + '/'
                                              + infantId + '/', f'{imgIndex}.jpg')
-            savepath_fixation480 = os.path.join('E:/project/infantVision/data/center cropping/'
+            savepath_fixation480 = os.path.join('data/center cropping/'
                                              + str(croppingSize480) + 'x' + str(croppingSize480) + '/'
                                              + infantId + '/', f'{imgIndex}.jpg')
             cv2.imwrite(savepath_fixation64, fixation_cropped_image64)

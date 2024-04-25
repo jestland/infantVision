@@ -1,8 +1,8 @@
 import os
 from PIL import Image
 
-input_folder = 'E:/project/infantVision/data/random cropping/64x64/16963'
-output_gif = 'E:/project/infantVision/results/data analysis/randomCropping64.gif'
+input_folder = 'data/random cropping/64x64/16963'
+output_gif = 'project/infantVision/results/data analysis/randomCropping64.gif'
 
 image_files = [f for f in os.listdir(input_folder) if f.endswith(('.png', '.jpg', '.jpeg'))]
 image_files.sort()
