@@ -7,21 +7,42 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from utils import save_config_file, accuracy, save_checkpoint
-from data_aug.dataloader import positive_pairs, negative_pairs
+import torch.nn as nn
 
 torch.manual_seed(42)
 
 
-def contrastive_loss(pos_pairs, neg_pairs, temperature=0.07):
-    pos_sim = torch.stack([F.cosine_similarity(p1, p2) for p1, p2 in pos_pairs])
-    neg_sim = torch.stack([F.cosine_similarity(n1, n2) for n1, n2 in neg_pairs])
+class Contrastive_Loss(nn.Module):
+    def __init__(self, sim_func, batch_size, temperature):
+        super(Contrastive_Loss, self).__init__()
+        self.batch_size = 128
+        self.temperature = 0.07
+        self.mask = self.mask_correlated_samples(batch_size)
+        self.criterion = nn.CrossEntropyLoss(reduction="sum")
+        self.sim_func = lambda x, x_pair: F.cosine_similarity(x.unsqueeze(1), x_pair.unsqueeze(0), dim=2)
 
-    pos_loss = -torch.log(torch.exp(pos_sim / temperature))
-    neg_loss = -torch.log(1 - torch.exp(neg_sim / temperature))
+    def mask_correlated_samples(self, batch_size):
+        mask = torch.ones(2 * batch_size, 2 * batch_size, dtype=torch.bool)
+        mask = mask.fill_diagonal_(0)
+        for i in range(batch_size):
+            mask[i, batch_size + i] = 0
+            mask[batch_size + i, i] = 0
+        return mask
 
-    loss = (pos_loss.mean() + neg_loss.mean()) / 2
+    def forward(self, x, x_pair, labels=None):
+        N = 2 * self.batch_size
+        z = torch.cat((x, x_pair), dim=0)
+        sim = self.sim_func(z, z) / self.temperature
+        sim_i_j = torch.diag(sim, self.batch_size)
+        sim_j_i = torch.diag(sim, -self.batch_size)
+        positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0).reshape(N, 1)
+        negative_samples = sim[self.mask].reshape(N, -1)
+        labels = torch.zeros(N).long()
+        logits = torch.cat((positive_samples, negative_samples), dim=1)
+        loss = self.criterion(logits, labels)
+        loss /= N
 
-    return loss
+        return loss
 
 
 class SimCLR(object):
@@ -35,36 +56,24 @@ class SimCLR(object):
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'training.log'), level=logging.DEBUG)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
-    def info_nce_loss(self, features):
-
-        labels = torch.cat([torch.arange(self.args.batch_size) for i in range(self.args.n_views)], dim=0)
-        labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        labels = labels.to(self.args.device)
-
-        features = F.normalize(features, dim=1)
-
-        similarity_matrix = torch.matmul(features, features.T)
-        # assert similarity_matrix.shape == (
-        #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
-        # assert similarity_matrix.shape == labels.shape
-
-        # discard the main diagonal from both: labels and similarities matrix
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
-        labels = labels[~mask].view(labels.shape[0], -1)
-        similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
-        # assert similarity_matrix.shape == labels.shape
-
-        # select and combine multiple positives
-        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
-
-        # select only the negatives
-        negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
-
-        logits = torch.cat([positives, negatives], dim=1)
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)
-
-        logits = logits / self.args.temperature
-        return logits, labels
+    # def info_nce_loss(self, features):
+    #
+    #     labels = torch.cat([torch.arange(self.args.batch_size) for i in range(self.args.n_views)], dim=0)
+    #     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+    #     labels = labels.to(self.args.device)
+    #     features = F.normalize(features, dim=1)
+    #     similarity_matrix = torch.matmul(features, features.T)
+    #     mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
+    #     labels = labels[~mask].view(labels.shape[0], -1)
+    #     similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
+    #     positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+    #     negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
+    #
+    #     logits = torch.cat([positives, negatives], dim=1)
+    #     labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)
+    #
+    #     logits = logits / self.args.temperature
+    #     return logits, labels
 
     def train(self, train_loader):
 
@@ -87,7 +96,7 @@ class SimCLR(object):
                     features = self.model(images)
                     # logits, labels = self.info_nce_loss(features)
                     # loss = self.criterion(logits, labels)
-                    loss = contrastive_loss(positive_pairs, negative_pairs)
+                    loss = Contrastive_Loss(self.model, self.args.batch_size, self.args.temperature)
 
                 self.optimizer.zero_grad()
 
@@ -97,7 +106,7 @@ class SimCLR(object):
                 scaler.update()
 
                 if n_iter % self.args.log_every_n_steps == 0:
-                    # top1, top5 = accuracy(logits, labels, topk=(1, 5))
+                    top1 = accuracy(logits, labels, topk=(1, 5))
                     self.writer.add_scalar('loss', loss, global_step=n_iter)
                     self.writer.add_scalar('acc/top1', top1[0], global_step=n_iter)
                     # self.writer.add_scalar('acc/top5', top5[0], global_step=n_iter)
