@@ -1,48 +1,18 @@
 import logging
 import os
 import sys
+
 import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from utils import save_config_file, accuracy, save_checkpoint
-import torch.nn as nn
+from utils import save_config_file, save_checkpoint
+from utils import generate_embeddings, accuracy
+from torch.linalg import lstsq
+from loss import infantVision_Loss
 
-torch.manual_seed(42)
-
-
-class Contrastive_Loss(nn.Module):
-    def __init__(self, sim_func, batch_size, temperature):
-        super(Contrastive_Loss, self).__init__()
-        self.batch_size = 128
-        self.temperature = 0.07
-        self.mask = self.mask_correlated_samples(batch_size)
-        self.criterion = nn.CrossEntropyLoss(reduction="sum")
-        self.sim_func = lambda x, x_pair: F.cosine_similarity(x.unsqueeze(1), x_pair.unsqueeze(0), dim=2)
-
-    def mask_correlated_samples(self, batch_size):
-        mask = torch.ones(2 * batch_size, 2 * batch_size, dtype=torch.bool)
-        mask = mask.fill_diagonal_(0)
-        for i in range(batch_size):
-            mask[i, batch_size + i] = 0
-            mask[batch_size + i, i] = 0
-        return mask
-
-    def forward(self, x, x_pair, labels=None):
-        N = 2 * self.batch_size
-        z = torch.cat((x, x_pair), dim=0)
-        sim = self.sim_func(z, z) / self.temperature
-        sim_i_j = torch.diag(sim, self.batch_size)
-        sim_j_i = torch.diag(sim, -self.batch_size)
-        positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0).reshape(N, 1)
-        negative_samples = sim[self.mask].reshape(N, -1)
-        labels = torch.zeros(N).long()
-        logits = torch.cat((positive_samples, negative_samples), dim=1)
-        loss = self.criterion(logits, labels)
-        loss /= N
-
-        return loss
+torch.manual_seed(0)
 
 
 class SimCLR(object):
@@ -54,15 +24,18 @@ class SimCLR(object):
         self.scheduler = kwargs['scheduler']
         self.writer = SummaryWriter()
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'training.log'), level=logging.DEBUG)
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
     # def info_nce_loss(self, features):
     #
     #     labels = torch.cat([torch.arange(self.args.batch_size) for i in range(self.args.n_views)], dim=0)
     #     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
     #     labels = labels.to(self.args.device)
+    #
     #     features = F.normalize(features, dim=1)
+    #
     #     similarity_matrix = torch.matmul(features, features.T)
+    #
     #     mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
     #     labels = labels[~mask].view(labels.shape[0], -1)
     #     similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
@@ -75,11 +48,10 @@ class SimCLR(object):
     #     logits = logits / self.args.temperature
     #     return logits, labels
 
-    def train(self, train_loader):
 
-        scaler = GradScaler()
+    def train(self, train_loader, test_loader):
 
-        # save config file
+        scaler = GradScaler(enabled=self.args.fp16_precision)
         save_config_file(self.writer.log_dir, self.args)
 
         n_iter = 0
@@ -89,14 +61,14 @@ class SimCLR(object):
         for epoch_counter in range(self.args.epochs):
             for images, _ in tqdm(train_loader):
                 images = torch.cat(images, dim=0)
-
-                images = images.to(self.args.device)
-
+                images.to(self.args.device)
                 with autocast(enabled=self.args.fp16_precision):
-                    features = self.model(images)
+                    # features = self.model(images)
                     # logits, labels = self.info_nce_loss(features)
                     # loss = self.criterion(logits, labels)
-                    loss = Contrastive_Loss(self.model, self.args.batch_size, self.args.temperature)
+                    representation, projection = self.model(images)
+                    projection, pair = projection.split(self.args.batch_size)
+                    loss = infantVision_Loss(projection, pair),
 
                 self.optimizer.zero_grad()
 
@@ -106,20 +78,22 @@ class SimCLR(object):
                 scaler.update()
 
                 if n_iter % self.args.log_every_n_steps == 0:
-                    top1 = accuracy(logits, labels, topk=(1, 5))
+                    train_embeddings, train_labels = generate_embeddings(self.model, train_loader)
+                    test_embeddings, test_labels = generate_embeddings(self.model, test_loader)
+                    lstsq_model = lstsq(train_embeddings, F.one_hot(train_labels, 24).type(torch.float32))
+                    acc = ((test_embeddings @ lstsq_model.solution).argmax(dim=-1) == test_labels).sum() / len(
+                        test_embeddings)
                     self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('acc/top1', top1[0], global_step=n_iter)
-                    # self.writer.add_scalar('acc/top5', top5[0], global_step=n_iter)
+                    self.writer.add_scalar('acc/top1', acc, global_step=n_iter)
                     self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
 
                 n_iter += 1
 
             # warmup for the first 10 epochs
-            if epoch_counter >= 10:
-                self.scheduler.step()
-            logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
-
+            # if epoch_counter >= 10:
+            #     self.scheduler.step()
         logging.info("Training has finished.")
+
         # save model checkpoints
         checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(self.args.epochs)
         save_checkpoint({
