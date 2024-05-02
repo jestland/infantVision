@@ -26,8 +26,8 @@ class infantVision_Loss(nn.Module):
 
         sim = self.similarity_f(z.unsqueeze(1), z.unsqueeze(0)) / self.temperature
 
-        sim_i_j = torch.diag(sim, self.batch_size * self.world_size)
-        sim_j_i = torch.diag(sim, -self.batch_size * self.world_size)
+        sim_i_j = torch.diag(sim, self.batch_size)
+        sim_j_i = torch.diag(sim, -self.batch_size)
 
         positive_samples = torch.cat((sim_i_j, sim_j_i), dim=0).reshape(N, 1)
         negative_samples = sim[self.mask].reshape(N, -1)

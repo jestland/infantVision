@@ -59,8 +59,8 @@ class SimCLR(object):
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")
 
         for epoch_counter in range(self.args.epochs):
-            for images, _ in tqdm(train_loader):
-                images = torch.cat(images, dim=0)
+            for img1, img2 in tqdm(train_loader):
+                images = torch.cat((img1, img2), dim=0)
                 images.to(self.args.device)
                 with autocast(enabled=self.args.fp16_precision):
                     # features = self.model(images)
