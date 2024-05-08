@@ -15,11 +15,11 @@ def extract_specific_column_range(df, column_name, start_index, end_index):
 
 
 def main():
-    csv_file_path = 'data\infantVisionDataInfo.csv'
-    plainbackground_path = 'data\plain background'
-    objectsfixation_path = 'data\objects fixation'
-    fixation64_path = 'data/fixation cropping/64x64'
-    fixation128_path = 'data/fixation cropping/128x128'
+    csv_file_path = './data/infantVisionDataInfo.csv'
+    plainbackground_path = './data/plain background'
+    objectsfixation_path = './data/objects fixation'
+    fixation64_path = './data/fixation cropping/64x64'
+    fixation128_path = './data/fixation cropping/128x128'
 
 
     df = pd.read_csv(csv_file_path)
@@ -61,7 +61,7 @@ def main():
     ax.set_ylabel("", fontsize=12, color='black', alpha=0.7, rotation=360)
     ax.ticklabel_format(style='sci', scilimits=(-1,2), axis='y', useMathText=True)
     plt.xticks(rotation=15)
-    plt.savefig('project/infantVision/results/data analysis/size of datasets.pdf', pad_inches=0)
+    plt.savefig('./results/data analysis/size of datasets.pdf', pad_inches=0)
     plt.show()
 
     # cropping Propotion
@@ -82,7 +82,7 @@ def main():
     # plt.yticks(np.arange(0, 1.2, 0.2), [f'{i}%' for i in range(0, 120, 20)])
     # plt.xlabel('infant ID')
     # plt.xticks(rotation=30)
-    # plt.savefig('project/infantVision/results/data analysis/Infant fixation proportion after cropping.pdf', pad_inches=0)
+    # plt.savefig('./project/infantVision/results/data analysis/Infant fixation proportion after cropping.pdf', pad_inches=0)
     # plt.show()
 
     # plain dataset
@@ -97,7 +97,7 @@ def main():
     # plt.bar_label(bar, label_type='edge')
     # plt.xlabel('labels')
     # plt.xticks(rotation=30)
-    # plt.savefig('project/infantVision/results/data analysis/Plain dataset.pdf', pad_inches=0)
+    # plt.savefig('./project/infantVision/results/data analysis/Plain dataset.pdf', pad_inches=0)
     # plt.show()
 
     # # Objects fixation dataset
@@ -113,7 +113,7 @@ def main():
     # plt.xlabel('labels')
     # plt.xticks(rotation=30)
     # ax.ticklabel_format(style='sci', scilimits=(-1,2), axis='y', useMathText=True)
-    # plt.savefig('project/infantVision/results/data analysis/Object fixation dataset.pdf', pad_inches=0)
+    # plt.savefig('./project/infantVision/results/data analysis/Object fixation dataset.pdf', pad_inches=0)
     # plt.show()
 
 

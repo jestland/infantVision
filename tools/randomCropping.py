@@ -32,7 +32,7 @@ def main():
     infantId = '18742'
     start_index = 3711
     end_index = start_index + 19017
-    csv_file_path = 'data/fixation sheet/child_20170322_18742.csv'
+    csv_file_path = './data/fixation sheet/child_20170322_18742.csv'
 
     df = pd.read_csv(csv_file_path, header=5)
     X = 'porX'
@@ -44,13 +44,13 @@ def main():
     location = list(zip(X_location, Y_location))
 
     for i, (x, y) in enumerate(location):
-        image_file_path = 'data/'+ infantId +'/img_' + str(i+1) + '.jpg'
+        image_file_path = './data/'+ infantId +'/img_' + str(i+1) + '.jpg'
         image = read_image_file(image_file_path)
 
         image64, image128 = random_crop(image)
-        savepath64 = os.path.join('data/random cropping/64x64/'
+        savepath64 = os.path.join('./data/random cropping/64x64/'
                                 + infantId + '/', f'{i+1}.jpg')
-        savepath128 = os.path.join('data/random cropping/128x128/'
+        savepath128 = os.path.join('./data/random cropping/128x128/'
                                 + infantId + '/', f'{i+1}.jpg')
         cv2.imwrite(savepath64, image64)
         cv2.imwrite(savepath128, image128)
