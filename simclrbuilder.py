@@ -75,9 +75,10 @@ class SimCLR(object):
                 scaler.step(self.optimizer)
                 scaler.update()
 
+            self.model.eval()
             if n_iter % self.args.log_every_n_steps == 0:
                 train_embeddings, _ = generate_embeddings(self.model, train_loader)
-                self.model.eval()
+
                 test_embeddings, test_labels = generate_embeddings(self.model, test_loader)
                 lstsq_model = lstsq(train_embeddings, F.one_hot(test_labels, 24).type(torch.float32))
                 acc = ((test_embeddings @ lstsq_model.solution).argmax(dim=-1) == test_labels).sum() / len(
