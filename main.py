@@ -1,7 +1,7 @@
 import argparse
 import torch
 import torch.backends.cudnn as cudnn
-from data_aug.dataloader import dataset_infantFixation64, dataset_objectsFixation
+from data_aug.dataloader import dataset_infantFixation64, train_dataset_objectsFixation64, test_dataset_objectsFixation64
 from models.simclr import ResNetSimCLR
 from simclrbuilder import SimCLR
 from torch.utils.data import DataLoader
@@ -9,17 +9,22 @@ from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-data', default='./data')
-parser.add_argument('-dataset-name', default='dataset_infantFixation64',
-                    choices=['dataset_plainBackground', 'dataset_objectsFixation',
+# parser.add_argument('--data_organizing', default='shift', type=str, choices=['origin', 'shift', 'remove']
+parser.add_argument('-dataset_model_train', default='dataset_infantFixation64',
+                    choices=['dataset_plainBackground64', 'dataset_plainBackground128',
+                             'dataset_objectsFixation64', 'dataset_objectsFixation128',
                              'dataset_randomFixation64', 'dataset_randomFixation128',
                              'dataset_centerFixation64', 'dataset_centerFixation128',
                              'dataset_centerFixation240', 'dataset_centerFixation480',
                              'dataset_infantFixation64', 'dataset_infantFixation128'])
+parser.add_argument('-dataset_projection_train', default='dataset_objectsFixation64',
+                    choices=['dataset_objectsFixation64', 'dataset_objectsFixation128'])
+parser.add_argument('-dataset_test', default='dataset_objectsFixation64',
+                    choices=['dataset_objectsFixation64', 'dataset_plainBackground128'])
 parser.add_argument('-a', '--arch', default='resnet18')
 parser.add_argument('-j', '--workers', default=8)
 parser.add_argument('--epochs', default=100)
 parser.add_argument('-b', '--batch-size', default=256)
-
 parser.add_argument('--lr', '--learning-rate', default=0.0005, type=float,
                     metavar='LR', help='initial learning rate', dest='lr', choices=[0.0001, 0.0005, 0.001, 0.01, 0.1, 0.5])
 parser.add_argument('--wd', '--weight-decay', default=0.000005, type=float,
@@ -50,21 +55,28 @@ def main():
         args.device = torch.device('cpu')
         args.gpu_index = -1
 
-    train_dataset = dataset_infantFixation64
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
-    test_dataset = dataset_objectsFixation
+    if args.dataset_model_train == 'dataset_infantFixation64':
+        model_train_dataset = dataset_infantFixation64
+    if args.dataset_projection_train == 'dataset_objectsFixation64':
+        projection_train_dataset = train_dataset_objectsFixation64
+    if args.dataset_test == 'dataset_objectsFixation64':
+        test_dataset = test_dataset_objectsFixation64
+
+
+    model_train_loader = DataLoader(model_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+    projection_train_loader = DataLoader(projection_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, )
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
     model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
 
     optimizer = torch.optim.AdamW(model.parameters(), args.lr, weight_decay=args.weight_decay)
     # criterion = torch.nn.CrossEntropyLoss().to(args.device)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(model_train_dataset), eta_min=0,
                                                            last_epoch=-1)
 
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(train_loader, test_loader)
+        simclr.train(model_train_loader, projection_train_loader, test_loader)
 
 
 

@@ -16,22 +16,24 @@ transform_to_128 = transforms.Compose([
 
 
 class LabeledDatasets(Dataset):
-    def __init__(self, root_dir, transform=transform_to_64):
+    def __init__(self, root_dir, transform=transform_to_64, split='train'):
         self.root_dir = root_dir
         self.transform = transform
+        self.split = split
         self.image_paths = []
         self.labels = []
         # self.labels = pd.read_csv(root_dir/exp_12_dictionary.csv)
         self.n_classses = 24
         # self.n_length = 1536
 
-        for idx, class_name in enumerate(os.listdir(root_dir)):
+        for idx, class_name in enumerate(os.listdir(root_dir.join(split))):
             class_dir = os.path.join(root_dir, class_name)
             if os.path.isdir(class_dir):
                 for img_name in os.listdir(class_dir):
                     if img_name.endswith('.jpg'):
                         self.image_paths.append(os.path.join(class_dir, img_name))
                         self.labels.append(idx)
+
 
     def __len__(self):
         return len(self.image_paths)
@@ -87,16 +89,23 @@ class InfantVisionDatasets(Dataset):
 
         return img1, img2, fname1_path.replace(self.root_dir, '')
 
+
+
+
 # shift #
-root_dir = 'data/shift/'
+root_dir = './data/shift/'
 # # Origin #
-# root_dir = 'data/origin/'
+# root_dir = './data/origin/'
 # # Remove #
-# root_dir = 'data/remove/'
+# root_dir = './data/remove/'
 
 
-dataset_plainBackground = LabeledDatasets(root_dir=root_dir.join('plain background/'), transform=transform_to_64)
-dataset_objectsFixation = LabeledDatasets(root_dir=root_dir.join('objects fixation/'), transform=transform_to_64)
+dataset_plainBackground64 = LabeledDatasets(root_dir=root_dir.join('plain background/64x64/'), transform=transform_to_64)
+dataset_plainBackground128 = LabeledDatasets(root_dir=root_dir.join('plain background/128x128/'), transform=transform_to_128)
+train_dataset_objectsFixation64 = LabeledDatasets(root_dir=root_dir.join('objects fixation/64x64/'), transform=transform_to_64, split ='train')
+train_dataset_objectsFixation128 = LabeledDatasets(root_dir=root_dir.join('objects fixation/128x128/'), transform=transform_to_128, split ='train')
+test_dataset_objectsFixation64 = LabeledDatasets(root_dir=root_dir.join('objects fixation/64x64/'), transform=transform_to_64, split ='test')
+test_dataset_objectsFixation128 = LabeledDatasets(root_dir=root_dir.join('objects fixation/128x128/'), transform=transform_to_128, split ='test')
 dataset_infantFixation64 = InfantVisionDatasets(root_dir=root_dir.join('fixation cropping/64x64/'), transform=None)
 dataset_infantFixation128 = InfantVisionDatasets(root_dir=root_dir.join('fixation cropping/128x128/'), transform=None)
 dataset_randomFixation64 = InfantVisionDatasets(root_dir=root_dir.join('random cropping/64x64/'), transform=None)
@@ -107,8 +116,12 @@ dataset_centerFixation240 = InfantVisionDatasets(root_dir=root_dir.join('center 
 dataset_centerFixation480 = InfantVisionDatasets(root_dir=root_dir.join('center cropping/480x480/'), transform=None)
 
 
-dataloader_plainBackground = DataLoader(dataset_plainBackground, batch_size=256., num_workers=8, shuffle=False)
-dataloader_objectsFixation = DataLoader(dataset_objectsFixation, batch_size=256, num_workers=8, shuffle=False)
+dataloader_plainBackground64 = DataLoader(dataset_plainBackground64, batch_size=256., num_workers=8, shuffle=True)
+dataloader_plainBackground128 = DataLoader(dataset_plainBackground128, batch_size=256., num_workers=8, shuffle=True)
+train_dataloader_objectsFixation64 = DataLoader(train_dataset_objectsFixation64, batch_size=256, num_workers=8, shuffle=True)
+train_dataloader_objectsFixation128 = DataLoader(train_dataset_objectsFixation128, batch_size=256, num_workers=8, shuffle=True)
+test_dataloader_objectsFixation64 = DataLoader(test_dataset_objectsFixation64, batch_size=256, num_workers=8, shuffle=False)
+test_dataloader_objectsFixation128 = DataLoader(test_dataset_objectsFixation128, batch_size=256, num_workers=8, shuffle=False)
 dataloader_infantFixation64 = DataLoader(dataset_infantFixation64, batch_size=256, num_workers=8, shuffle=True)
 dataloader_infantFixation128 = DataLoader(dataset_infantFixation128, batch_size=256, num_workers=8, shuffle=True)
 dataloader_randomFixation64 = DataLoader(dataset_randomFixation64, batch_size=256, num_workers=8, shuffle=True)

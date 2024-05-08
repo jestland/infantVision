@@ -12,7 +12,7 @@ from utils import generate_embeddings, accuracy
 from torch.linalg import lstsq
 from loss import infantVision_Loss
 
-torch.manual_seed(0)
+torch.manual_seed(42)
 
 
 class SimCLR(object):
@@ -48,7 +48,7 @@ class SimCLR(object):
     #     logits = logits / self.args.temperature
     #     return logits, labels
 
-    def train(self, train_loader, test_loader):
+    def train(self, model_train_loader, projection_train_loader, test_loader):
 
         scaler = GradScaler()
         save_config_file(self.writer.log_dir, self.args)
@@ -59,10 +59,10 @@ class SimCLR(object):
 
         for epoch_counter in range(self.args.epochs):
             self.model.train()
-            for img1, img2 in tqdm(train_loader):
+            for img1, img2 in tqdm(model_train_loader):
                 images = torch.cat((img1, img2), dim=0)
                 images.to(self.args.device)
-                with autocast(enabled=self.args.fp16_precision):
+                with autocast():
                     # features = self.model(images)
                     # logits, labels = self.info_nce_loss(features)
                     # loss = self.criterion(logits, labels)
@@ -78,9 +78,9 @@ class SimCLR(object):
             self.model.eval()
             with torch.no_grad():
                 if n_iter % self.args.log_every_n_steps == 0:
-                    train_embeddings, _ = generate_embeddings(self.model, train_loader)
+                    train_embeddings, train_labels = generate_embeddings(self.model, projection_train_loader)
                     test_embeddings, test_labels = generate_embeddings(self.model, test_loader)
-                    lstsq_model = lstsq(train_embeddings, F.one_hot(test_labels, 24).type(torch.float32))
+                    lstsq_model = lstsq(train_embeddings, F.one_hot(train_labels, 24).type(torch.float32))
                     acc = ((test_embeddings @ lstsq_model.solution).argmax(dim=-1) == test_labels).sum() / len(
                         test_embeddings)
                     self.writer.add_scalar('loss', loss, global_step=n_iter)
