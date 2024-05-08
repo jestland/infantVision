@@ -10,9 +10,10 @@ def generate_embeddings(model, dataloader):
     embeddings = []
     filenames = []
     with torch.no_grad():
-        for img, _, fnames in dataloader:
-            img = img.to(model.device)
-            emb = model.backbone(img).flatten(start_dim=1)
+        for img1, img2, fnames in dataloader:
+            images = torch.cat((img1, img2), dim=0)
+            images.to(model.device)
+            emb = model.backbone(images).flatten(start_dim=1)
             embeddings.append(emb)
             filenames.extend(fnames)
 

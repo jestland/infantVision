@@ -21,10 +21,10 @@ parser.add_argument('--epochs', default=100)
 parser.add_argument('-b', '--batch-size', default=256)
 
 parser.add_argument('--lr', '--learning-rate', default=0.0005, type=float,
-                    metavar='LR', help='initial learning rate', dest='lr', choices=[0.0001, 0.0005, 0.001, 0.01])
+                    metavar='LR', help='initial learning rate', dest='lr', choices=[0.0001, 0.0005, 0.001, 0.01, 0.1, 0.5])
 parser.add_argument('--wd', '--weight-decay', default=0.000005, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
-                    dest='weight_decay', choices=[0.000001, 0.000005, 0.00001, 0.0001])
+                    dest='weight_decay', choices=[0.000001, 0.000005, 0.00001, 0.0001, 0.001, 0.005])
 parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--disable-cuda', action='store_true',
@@ -34,7 +34,9 @@ parser.add_argument('--out_dim', default=128, type=int,
 parser.add_argument('--log-every-n-steps', default=100, type=int,
                     help='Log every n steps')
 parser.add_argument('--temperature', default=0.07, type=float,
-                    help='softmax temperature (default: 0.07)', choices=[0.07, 0.08, 0.09, 0.1])
+                    help='softmax temperature (default: 0.07)', choices=[0.05, 0.08, 0.1, 0.2, 0.5, 1])
+# parser.add_argument('--skip_frame', default=0, type=float,
+#                     help='skip select number of frames', choices=[0, 5, 10, 20, 30, 60, 90, 120])
 
 
 def main():
@@ -55,7 +57,7 @@ def main():
 
     model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
 
-    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), args.lr, weight_decay=args.weight_decay)
     # criterion = torch.nn.CrossEntropyLoss().to(args.device)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
                                                            last_epoch=-1)

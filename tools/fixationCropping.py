@@ -16,7 +16,17 @@ def read_image_file(image_file_path):
     image = cv2.imread(image_file_path)
     return image
 
-def fixation_crop(image, center_x, center_y, crop_size):
+def fixation_crop(image, center_x, center_y, crop_size, shift=False):
+    if shift:
+        if center_x - crop_size[0] / 2 < 0:
+            center_x += abs(center_x - crop_size[0] / 2)
+        if center_y - crop_size[1] / 2 < 0:
+            center_y += abs(center_y - crop_size[1] / 2)
+        if center_x + crop_size[0] / 2 > image.shape[1]:
+            center_x -= abs(center_x + crop_size[0] / 2 - image.shape[1])
+        if center_y + crop_size[1] / 2 > image.shape[0]:
+            center_y -= abs(center_y + crop_size[1] / 2 - image.shape[0])
+
     start_x = int(center_x - crop_size[0] / 2)
     start_y = int(center_y - crop_size[1] / 2)
     end_x = int(center_x + crop_size[0] / 2)
@@ -29,7 +39,7 @@ def main():
     infantId = '18742'
     start_index = 3711
     end_index = start_index + 19017
-    csv_file_path = 'data/fixation sheet/child_20170322_18742.csv'
+    csv_file_path = 'E:/project/infantVision/data/fixation sheet/child_20170322_18742.csv'
     croppingSize = 128
 
     df = pd.read_csv(csv_file_path, header=5)
@@ -43,14 +53,14 @@ def main():
     location = list(zip(X_location, Y_location))
     imgIndex = 0
     for i, (x, y) in enumerate(location):
-        image_file_path = 'data/'+ infantId +'/img_' + str(i+1) + '.jpg'
+        image_file_path = 'E:/project/infantVision/data/'+ infantId +'/img_' + str(i+1) + '.jpg'
         image = read_image_file(image_file_path)
 
-        fixation_cropped_image = fixation_crop(image, x, y, crop_size)
+        fixation_cropped_image = fixation_crop(image, x, y, crop_size, shift=False)
         if fixation_cropped_image.shape[0] != croppingSize or fixation_cropped_image.shape[1] != croppingSize:
             continue
         imgIndex+=1
-        savepath_fixation = os.path.join('data/fixation cropping/'
+        savepath_fixation = os.path.join('E:/project/infantVision/data/fixation cropping/'
                                 + str(croppingSize) + 'x' + str(croppingSize) +'/'
                                 + infantId + '/', f'{imgIndex}.jpg')
         cv2.imwrite(savepath_fixation, fixation_cropped_image)

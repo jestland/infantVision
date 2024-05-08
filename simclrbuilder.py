@@ -48,10 +48,9 @@ class SimCLR(object):
     #     logits = logits / self.args.temperature
     #     return logits, labels
 
-
     def train(self, train_loader, test_loader):
 
-        scaler = GradScaler(enabled=self.args.fp16_precision)
+        scaler = GradScaler()
         save_config_file(self.writer.log_dir, self.args)
 
         n_iter = 0
@@ -59,6 +58,7 @@ class SimCLR(object):
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")
 
         for epoch_counter in range(self.args.epochs):
+            self.model.train()
             for img1, img2 in tqdm(train_loader):
                 images = torch.cat((img1, img2), dim=0)
                 images.to(self.args.device)
@@ -70,22 +70,21 @@ class SimCLR(object):
                     projection, pair = projection.split(self.args.batch_size)
                     loss = infantVision_Loss(projection, pair),
 
-                self.optimizer.zero_grad()
-
+                self.optimizer.zero_grad(set_to_none=True)
                 scaler.scale(loss).backward()
-
                 scaler.step(self.optimizer)
                 scaler.update()
 
-                if n_iter % self.args.log_every_n_steps == 0:
-                    train_embeddings, train_labels = generate_embeddings(self.model, train_loader)
-                    test_embeddings, test_labels = generate_embeddings(self.model, test_loader)
-                    lstsq_model = lstsq(train_embeddings, F.one_hot(train_labels, 24).type(torch.float32))
-                    acc = ((test_embeddings @ lstsq_model.solution).argmax(dim=-1) == test_labels).sum() / len(
-                        test_embeddings)
-                    self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('acc/top1', acc, global_step=n_iter)
-                    self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
+            if n_iter % self.args.log_every_n_steps == 0:
+                train_embeddings, _ = generate_embeddings(self.model, train_loader)
+                self.model.eval()
+                test_embeddings, test_labels = generate_embeddings(self.model, test_loader)
+                lstsq_model = lstsq(train_embeddings, F.one_hot(test_labels, 24).type(torch.float32))
+                acc = ((test_embeddings @ lstsq_model.solution).argmax(dim=-1) == test_labels).sum() / len(
+                    test_embeddings)
+                self.writer.add_scalar('loss', loss, global_step=n_iter)
+                self.writer.add_scalar('acc/top1', acc, global_step=n_iter)
+                self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
 
                 n_iter += 1
 

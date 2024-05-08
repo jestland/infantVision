@@ -9,7 +9,16 @@ def read_image_file(image_file_path):
     image = cv2.imread(image_file_path)
     return image
 
-def fixation_crop(image, center_x, center_y, crop_size):
+def fixation_crop(image, center_x, center_y, crop_size, shift=False):
+    if shift:
+        if center_x - crop_size[0] / 2 < 0:
+            center_x += abs(center_x - crop_size[0] / 2)
+        if center_y - crop_size[1] / 2 < 0:
+            center_y += abs(center_y - crop_size[1] / 2)
+        if center_x + crop_size[0] / 2 > image.shape[1]:
+            center_x -= abs(center_x + crop_size[0] / 2 - image.shape[1])
+        if center_y + crop_size[1] / 2 > image.shape[0]:
+            center_y -= abs(center_y + crop_size[1] / 2 - image.shape[0])
     start_x = int(center_x - crop_size[0] / 2)
     start_y = int(center_y - crop_size[1] / 2)
     end_x = int(center_x + crop_size[0] / 2)
@@ -31,41 +40,47 @@ def main():
         infantId = id
         croppingSize64 = 64
         croppingSize128 = 128
-        croppingSize480 = 240
+        croppingSize240 = 240
+        croppingSize480 = 480
 
-        id_path = 'data/' + infantId
+        id_path = 'E:/project/infantVision/data/' + infantId
         crop_size64 = (croppingSize64, croppingSize64)
         crop_size128 = (croppingSize128, croppingSize128)
+        crop_size240 = (croppingSize240, croppingSize240)
         crop_size480 = (croppingSize480, croppingSize480)
 
         dataSize = len(os.listdir(id_path))
         imgIndex = 0
         for i in range(dataSize):
-            image_file_path = 'data/'+ infantId +'/img_' + str(i+1) + '.jpg'
+            image_file_path = 'E:/project/infantVision/data/'+ infantId +'/img_' + str(i+1) + '.jpg'
             image = read_image_file(image_file_path)
             x = image.shape[1] / 2
             y = image.shape[0] / 2
-            fixation_cropped_image64 = fixation_crop(image, x, y, crop_size64)
-            fixation_cropped_image128 = fixation_crop(image, x, y, crop_size128)
-            fixation_cropped_image480 = fixation_crop(image, x, y, crop_size480)
+            fixation_cropped_image64 = fixation_crop(image, x, y, crop_size64, shift=False)
+            fixation_cropped_image128 = fixation_crop(image, x, y, crop_size128, shift=False)
+            fixation_cropped_image240 = fixation_crop(image, x, y, crop_size240, shift=False)
+            fixation_cropped_image480 = fixation_crop(image, x, y, crop_size480, shift=False)
 
             imgIndex+=1
-            savepath_fixation64 = os.path.join('data/center cropping/'
+            savepath_fixation64 = os.path.join('E:/project/infantVision/data/center cropping/'
                                     + str(croppingSize64) + 'x' + str(croppingSize64) +'/'
                                     + infantId + '/', f'{imgIndex}.jpg')
-            savepath_fixation128 = os.path.join('data/center cropping/'
+            savepath_fixation128 = os.path.join('E:/project/infantVision/data/center cropping/'
                                              + str(croppingSize128) + 'x' + str(croppingSize128) + '/'
                                              + infantId + '/', f'{imgIndex}.jpg')
-            savepath_fixation480 = os.path.join('data/center cropping/'
+            savepath_fixation240 = os.path.join('E:/project/infantVision/data/center cropping/'
+                                                + str(croppingSize240) + 'x' + str(croppingSize240) + '/'
+                                                + infantId + '/', f'{imgIndex}.jpg')
+            savepath_fixation480 = os.path.join('E:/project/infantVision/data/center cropping/'
                                              + str(croppingSize480) + 'x' + str(croppingSize480) + '/'
                                              + infantId + '/', f'{imgIndex}.jpg')
             cv2.imwrite(savepath_fixation64, fixation_cropped_image64)
             cv2.imwrite(savepath_fixation128, fixation_cropped_image128)
+            cv2.imwrite(savepath_fixation240, fixation_cropped_image240)
             cv2.imwrite(savepath_fixation480, fixation_cropped_image480)
 
-            print(f"fixationCropping saved: {savepath_fixation64},{savepath_fixation128},{savepath_fixation480}")
+            print(f"fixationCropping saved: {savepath_fixation64},{savepath_fixation128},{savepath_fixation240}, {savepath_fixation480}")
 
-            print(f"fixationCropping saved:{savepath_fixation480}")
 
 if __name__ == "__main__":
     main()
