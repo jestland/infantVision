@@ -68,7 +68,7 @@ class SimCLR(object):
                     # loss = self.criterion(logits, labels)
                     representation, projection = self.model(images)
                     projection, pair = projection.split(self.args.batch_size)
-                    loss = infantVision_Loss(projection, pair),
+                    loss = infantVision_Loss(self.args.batch_size, self.args.temperature)(projection, pair)
 
                 self.optimizer.zero_grad(set_to_none=True)
                 scaler.scale(loss).backward()
