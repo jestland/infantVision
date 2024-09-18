@@ -61,7 +61,7 @@ def main():
     ax.set_ylabel("", fontsize=12, color='black', alpha=0.7, rotation=360)
     ax.ticklabel_format(style='sci', scilimits=(-1,2), axis='y', useMathText=True)
     plt.xticks(rotation=15)
-    plt.savefig('./results/data analysis/size of datasets.pdf', pad_inches=0)
+    # plt.savefig('./results/data analysis/size of datasets.pdf', pad_inches=0)
     plt.show()
 
     # cropping Propotion
