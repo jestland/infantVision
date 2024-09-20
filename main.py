@@ -14,8 +14,8 @@ parser.add_argument('-dataset_model_train', default='dataset_infantFixation64',
                     choices=['dataset_plainBackground64', 'dataset_plainBackground128',
                              'dataset_objectsFixation64', 'dataset_objectsFixation128',
                              'dataset_randomFixation64', 'dataset_randomFixation128',
-                             'dataset_centerFixation64', 'dataset_centerFixation128',
-                             'dataset_centerFixation240', 'dataset_centerFixation480',
+                             'dataset_centroidFixation64', 'dataset_centroidFixation128',
+                             'dataset_centroidFixation240', 'dataset_centroidFixation480',
                              'dataset_infantFixation64', 'dataset_infantFixation128'])
 parser.add_argument('-dataset_projection_train', default='dataset_objectsFixation64',
                     choices=['dataset_objectsFixation64', 'dataset_objectsFixation128'])
@@ -41,7 +41,7 @@ parser.add_argument('--log-every-n-steps', default=100, type=int,
 parser.add_argument('--temperature', default=0.07, type=float,
                     help='softmax temperature (default: 0.07)', choices=[0.05, 0.08, 0.1, 0.2, 0.5, 1])
 # parser.add_argument('--skip_frame', default=0, type=float,
-#                     help='skip select number of frames', choices=[0, 5, 10, 20, 30, 60, 90, 120])
+#                     help='skip select number of frames', choices=[0, 5, 10, 20, 30, 45, 60, 90, 120])
 
 
 def main():

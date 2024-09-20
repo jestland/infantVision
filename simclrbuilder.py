@@ -11,6 +11,7 @@ from utils import save_config_file, save_checkpoint
 from utils import generate_embeddings, accuracy
 from torch.linalg import lstsq
 from loss import infantVision_Loss
+from tools.augmentations import get_transformations
 
 torch.manual_seed(42)
 
@@ -60,6 +61,7 @@ class SimCLR(object):
         for epoch_counter in range(self.args.epochs):
             self.model.train()
             for img1, img2 in tqdm(model_train_loader):
+                img1, img2 = get_transformations(img1, flag=True), get_transformations(img2, flag=True)
                 images = torch.cat((img1, img2), dim=0)
                 images.to(self.args.device)
                 with autocast():
