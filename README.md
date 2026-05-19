@@ -134,7 +134,7 @@ The dataset used in this research cannot be made publicly available due to priva
 
 ## Citation
 
-If you think this project is helpful for your research, please cite our paper:
+If you find this project useful for your research, please consider citing our paper:
 
 ```bibtex
 @misc{yu2025toddlersactivegazebehavior,
@@ -148,7 +148,7 @@ If you think this project is helpful for your research, please cite our paper:
 }
 ```
 
-For the contrastive learning through time model, please refer to:
+For the contrastive learning through time (CLTT) framework, please refer to:
 
 ```bibtex
 @inproceedings{schneider2021contrastive,
