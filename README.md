@@ -122,11 +122,11 @@ The dataset used in this research cannot be made publicly available due to priva
 
 ```bibtex
 @article{bambach2018toddler,
-  title     = {Toddler-inspired visual object learning},
-  author    = {Bambach, Sven and Crandall, David and Smith, Linda and Yu, Chen},
-  journal   = {Advances in Neural Information Processing Systems},
-  volume    = {31},
-  year      = {2018}
+  title={Toddler-inspired visual object learning},
+  author={Bambach, Sven and Crandall, David and Smith, Linda and Yu, Chen},
+  journal={Advances in neural information processing systems},
+  volume={31},
+  year={2018}
 }
 ```
 
@@ -152,11 +152,10 @@ For the contrastive learning through time (CLTT) framework, please refer to:
 
 ```bibtex
 @inproceedings{schneider2021contrastive,
-  title     = {Contrastive learning through time},
-  author    = {Schneider, Florian and Xu, Xueyi and Ernst, Markus R and Yu, Zhuanghua and Triesch, Jochen},
-  booktitle = {SVRHM 2021 Workshop @ NeurIPS},
-  year      = {2021},
-  month     = {December}
+  title={Contrastive learning through time},
+  author={Schneider, Felix and Xu, Xia and Ernst, Markus R and Yu, Zhengyang and Triesch, Jochen},
+  booktitle={Svrhm 2021 workshop@ neurips},
+  year={2021}
 }
 ```
 
