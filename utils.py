@@ -1,37 +1,54 @@
 import os
 import shutil
+from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 import yaml
-from sklearn.preprocessing import normalize
 
 
-def generate_embeddings(model, dataloader):
+def generate_embeddings(model, dataloader, device):
+    model.eval()
+
     embeddings = []
-    filenames = []
+    labels = []
+
     with torch.no_grad():
-        for img1, img2, fnames in dataloader:
-            images = torch.cat((img1, img2), dim=0)
-            images.to(model.device)
-            emb = model.backbone(images).flatten(start_dim=1)
-            embeddings.append(emb)
-            filenames.extend(fnames)
+        for images, y in dataloader:
+            images = images.to(device, non_blocking=True)
 
-    embeddings = torch.cat(embeddings, 0)
-    embeddings = normalize(embeddings)
-    return embeddings, filenames
+            embedding, _ = model(images)
+            embedding = F.normalize(embedding.flatten(start_dim=1), dim=1)
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+            embeddings.append(embedding.cpu())
+            labels.append(y.cpu())
+
+    return torch.cat(embeddings, dim=0), torch.cat(labels, dim=0)
+
+
+def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
     torch.save(state, filename)
+
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        best_path = os.path.join(os.path.dirname(filename), "model_best.pth.tar")
+        shutil.copyfile(filename, best_path)
 
 
 def save_config_file(model_checkpoints_folder, args):
-    if not os.path.exists(model_checkpoints_folder):
-        os.makedirs(model_checkpoints_folder)
-        with open(os.path.join(model_checkpoints_folder, 'config.yml'), 'w') as outfile:
-            yaml.dump(args, outfile, default_flow_style=False)
+    model_checkpoints_folder = Path(model_checkpoints_folder)
+    model_checkpoints_folder.mkdir(parents=True, exist_ok=True)
+
+    config_path = model_checkpoints_folder / "config.yml"
+
+    args_dict = vars(args).copy()
+    for key, value in args_dict.items():
+        if isinstance(value, Path):
+            args_dict[key] = str(value)
+        elif isinstance(value, torch.device):
+            args_dict[key] = str(value)
+
+    with open(config_path, "w") as outfile:
+        yaml.safe_dump(args_dict, outfile, default_flow_style=False)
 
 
 def accuracy(output, target, topk=(1,)):
@@ -39,12 +56,13 @@ def accuracy(output, target, topk=(1,)):
         maxk = max(topk)
         batch_size = target.size(0)
 
-        _, pred = output.topk(maxk, 1, True, True)
+        _, pred = output.topk(maxk, dim=1, largest=True, sorted=True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
-        res = []
+        results = []
         for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
+            correct_k = correct[:k].reshape(-1).float().sum(0)
+            results.append(correct_k.mul(100.0 / batch_size))
+
+        return results
