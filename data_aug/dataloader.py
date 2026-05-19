@@ -1,36 +1,48 @@
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
 import os
+from pathlib import Path
+
+from PIL import Image
+from torch.utils.data import Dataset
 from torchvision import transforms
 
-transform_to_64 = transforms.Compose([
-    transforms.Resize((64, 64)),
-    transforms.ToTensor(),
-])
 
-transform_to_128 = transforms.Compose([
-    transforms.Resize((128, 128)),
-    transforms.ToTensor(),
-])
+def make_transform(crop_size: int):
+    return transforms.Compose([
+        transforms.Resize((crop_size, crop_size)),
+        transforms.ToTensor(),
+    ])
 
 
 class LabeledDatasets(Dataset):
-    def __init__(self, root_dir, transform=transform_to_64, split='train'):
-        self.root_dir = root_dir
+    def __init__(self, root_dir, transform=None, split="train"):
+        self.root_dir = Path(root_dir)
         self.transform = transform
         self.split = split
         self.image_paths = []
         self.labels = []
-        self.n_classes = 24
+        self.class_to_idx = {}
 
-        split_dir = os.path.join(root_dir, split)
-        for idx, class_name in enumerate(sorted(os.listdir(split_dir))):
-            class_dir = os.path.join(split_dir, class_name)
-            if os.path.isdir(class_dir):
-                for img_name in os.listdir(class_dir):
-                    if img_name.endswith('.jpg'):
-                        self.image_paths.append(os.path.join(class_dir, img_name))
-                        self.labels.append(idx)
+        split_dir = self.root_dir / split
+        if not split_dir.exists():
+            raise FileNotFoundError(f"Split directory not found: {split_dir}")
+
+        class_names = sorted(
+            d.name for d in split_dir.iterdir() if d.is_dir()
+        )
+
+        for idx, class_name in enumerate(class_names):
+            self.class_to_idx[class_name] = idx
+            class_dir = split_dir / class_name
+
+            for img_path in sorted(class_dir.iterdir()):
+                if img_path.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+                    self.image_paths.append(img_path)
+                    self.labels.append(idx)
+
+        if len(self.image_paths) == 0:
+            raise RuntimeError(f"No images found in {split_dir}")
+
+        self.n_classes = len(class_names)
 
     def __len__(self):
         return len(self.image_paths)
@@ -38,70 +50,94 @@ class LabeledDatasets(Dataset):
     def __getitem__(self, idx):
         img_path = self.image_paths[idx]
         label = self.labels[idx]
-        image = Image.open(img_path).convert('RGB')
+
+        image = Image.open(img_path).convert("RGB")
+
         if self.transform:
             image = self.transform(image)
+
         return image, label
 
 
 class InfantVisionDatasets(Dataset):
     def __init__(self, root_dir, transform=None):
-        self.root_dir = root_dir
-        self.transform = transform if transform is not None else transforms.Compose([transforms.ToTensor()])
+        self.root_dir = Path(root_dir)
+        self.transform = transform
         self.pairs = []
 
-        for folder_name in sorted(os.listdir(root_dir)):
-            folder_path = os.path.join(root_dir, folder_name)
-            if os.path.isdir(folder_path):
-                imgs = sorted([
-                    os.path.join(folder_path, f)
-                    for f in os.listdir(folder_path)
-                    if f.endswith('.jpg')
-                ])
-                for i in range(len(imgs) - 1):
-                    self.pairs.append((imgs[i], imgs[i + 1], folder_name))
+        if not self.root_dir.exists():
+            raise FileNotFoundError(f"Dataset directory not found: {self.root_dir}")
+
+        for folder_path in sorted(self.root_dir.iterdir()):
+            if not folder_path.is_dir():
+                continue
+
+            imgs = sorted(
+                p for p in folder_path.iterdir()
+                if p.suffix.lower() in [".jpg", ".jpeg", ".png"]
+            )
+
+            for i in range(len(imgs) - 1):
+                self.pairs.append((imgs[i], imgs[i + 1], folder_path.name))
+
+        if len(self.pairs) == 0:
+            raise RuntimeError(f"No temporal image pairs found in {self.root_dir}")
 
     def __len__(self):
         return len(self.pairs)
 
     def __getitem__(self, idx):
         img1_path, img2_path, folder_name = self.pairs[idx]
-        img1 = Image.open(img1_path).convert('RGB')
-        img2 = Image.open(img2_path).convert('RGB')
+
+        img1 = Image.open(img1_path).convert("RGB")
+        img2 = Image.open(img2_path).convert("RGB")
+
         if self.transform:
             img1 = self.transform(img1)
             img2 = self.transform(img2)
+
         return img1, img2, folder_name
 
 
-root_dir = './data/shift/'
+def build_dataset(name, data_root, crop_size=128):
+    data_root = Path(data_root)
+    transform = make_transform(crop_size)
+    size_dir = f"{crop_size}x{crop_size}"
 
-# dataset_plainBackground64 = LabeledDatasets(root_dir=os.path.join(root_dir, 'plain background/64x64/'), transform=transform_to_64)
-# dataset_plainBackground128 = LabeledDatasets(root_dir=os.path.join(root_dir, 'plain background/128x128/'), transform=transform_to_128)
-# train_dataset_objectsFixation64 = LabeledDatasets(root_dir=os.path.join(root_dir, 'objects fixation/64x64/'), transform=transform_to_64, split='train')
-# train_dataset_objectsFixation128 = LabeledDatasets(root_dir=os.path.join(root_dir, 'objects fixation/128x128/'), transform=transform_to_128, split='train')
-# test_dataset_objectsFixation64 = LabeledDatasets(root_dir=os.path.join(root_dir, 'objects fixation/64x64/'), transform=transform_to_64, split='test')
-# test_dataset_objectsFixation128 = LabeledDatasets(root_dir=os.path.join(root_dir, 'objects fixation/128x128/'), transform=transform_to_128, split='test')
-# dataset_infantFixation64 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'fixation cropping/64x64/'))
-# dataset_infantFixation128 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'fixation cropping/128x128/'))
-# dataset_randomFixation64 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'random cropping/64x64/'))
-# dataset_randomFixation128 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'random cropping/128x128/'))
-# dataset_centerFixation64 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'center cropping/64x64/'))
-# dataset_centerFixation128 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'center cropping/128x128/'))
-# dataset_centerFixation240 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'center cropping/240x240/'))
-# dataset_centerFixation480 = InfantVisionDatasets(root_dir=os.path.join(root_dir, 'center cropping/480x480/'))
+    dataset_roots = {
+        "infant_fixation": data_root / "fixation cropping" / size_dir,
+        "random_fixation": data_root / "random cropping" / size_dir,
+        "center_fixation": data_root / "center cropping" / size_dir,
+        "objects_train": data_root / "objects fixation" / size_dir,
+        "objects_test": data_root / "objects fixation" / size_dir,
+    }
 
-# dataloader_plainBackground64 = DataLoader(dataset_plainBackground64, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_plainBackground128 = DataLoader(dataset_plainBackground128, batch_size=256, num_workers=8, shuffle=True)
-# train_dataloader_objectsFixation64 = DataLoader(train_dataset_objectsFixation64, batch_size=256, num_workers=8, shuffle=True)
-# train_dataloader_objectsFixation128 = DataLoader(train_dataset_objectsFixation128, batch_size=256, num_workers=8, shuffle=True)
-# test_dataloader_objectsFixation64 = DataLoader(test_dataset_objectsFixation64, batch_size=256, num_workers=8, shuffle=False)
-# test_dataloader_objectsFixation128 = DataLoader(test_dataset_objectsFixation128, batch_size=256, num_workers=8, shuffle=False)
-# dataloader_infantFixation64 = DataLoader(dataset_infantFixation64, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_infantFixation128 = DataLoader(dataset_infantFixation128, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_randomFixation64 = DataLoader(dataset_randomFixation64, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_randomFixation128 = DataLoader(dataset_randomFixation128, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_centerFixation64 = DataLoader(dataset_centerFixation64, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_centerFixation128 = DataLoader(dataset_centerFixation128, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_centerFixation240 = DataLoader(dataset_centerFixation240, batch_size=256, num_workers=8, shuffle=True)
-# dataloader_centerFixation480 = DataLoader(dataset_centerFixation480, batch_size=256, num_workers=8, shuffle=True)
+    if name not in dataset_roots:
+        raise ValueError(
+            f"Unknown dataset: {name}. "
+            f"Available datasets: {list(dataset_roots.keys())}"
+        )
+
+    root_dir = dataset_roots[name]
+
+    if name in ["infant_fixation", "random_fixation", "center_fixation"]:
+        return InfantVisionDatasets(
+            root_dir=root_dir,
+            transform=transform,
+        )
+
+    if name == "objects_train":
+        return LabeledDatasets(
+            root_dir=root_dir,
+            transform=transform,
+            split="train",
+        )
+
+    if name == "objects_test":
+        return LabeledDatasets(
+            root_dir=root_dir,
+            transform=transform,
+            split="test",
+        )
+
+    raise ValueError(f"Unhandled dataset name: {name}")
