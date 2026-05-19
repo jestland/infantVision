@@ -92,7 +92,7 @@ python main.py \
 | `--epochs` | `100` | Number of training epochs |
 | `--batch-size` | `256` | Batch size |
 | `--lr` | `0.0005` | Learning rate (AdamW) |
-| `--temperature` | `0.07` | NT-Xent temperature |
+| `--temperature` | `0.07` | Loss temperature |
 | `--out_dim` | `128` | Projection head output dimension |
 | `--disable-cuda` | `False` | Force CPU training |
 
