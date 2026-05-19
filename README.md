@@ -19,7 +19,7 @@ infantVision/
 ├── data_aug/
 │   └── dataloader.py     # Dataset classes for various fixation strategies
 └── tools/
-    └── augmentations.py  # Image transformation pipeline, and the different cropping strategies from the paper
+    ├── augmentations.py  # Image transformation pipeline, and the different cropping strategies from the paper
     └── ...
 ```
 
@@ -32,11 +32,11 @@ The framework supports multiple fixation-guided cropping strategies, selectable 
 
 | Dataset Name | Description |
 |---|---|
-| `dataset_infantFixation` | Crops centered on real infant gaze fixation points |
-| `dataset_objectsFixation` | Crops centered on object regions |
-| `dataset_centroidFixation` | Crops centered on gaze centroids |
-| `dataset_randomFixation` | Random crop baseline |
-| `dataset_plainBackground` | Plain background, no fixation bias |
+| `infant_fixation` | Crops centered on recorded toddler gaze locations |
+| `random_fixation` | Random crop baseline |
+| `center_fixation` | Centroid / no-eye-movement baseline |
+| `objects_train` | Labeled object fixation training split for linear probe |
+| `objects_test` | Labeled object fixation test split |
 
 ## Model Architecture
 
@@ -67,32 +67,36 @@ pip install -r requirements.txt
 
 ```bash
 python main.py \
-  -data ./data \
-  -dataset_model_train dataset_infantFixation64 \
-  -dataset_projection_train dataset_objectsFixation64 \
-  -dataset_test dataset_objectsFixation64 \
+  --data ./data/shift \
+  --dataset-model-train infant_fixation \
+  --dataset-projection-train objects_train \
+  --dataset-test objects_test \
+  --crop-size 128 \
   --arch resnet18 \
   --epochs 100 \
   --batch-size 256 \
-  --lr 0.0005 \
-  --temperature 0.07 \
-  --out_dim 128
+  --lr 1e-2 \
+  --weight-decay 1e-4 \
+  --temperature 0.08 \
+  --out-dim 128
 ```
 
 ### Key Arguments
 
 | Argument | Default | Description |
 |---|---|---|
-| `-data` | `./data` | Path to the dataset root |
-| `-dataset_model_train` | `dataset_infantFixation64` | Fixation strategy for pre-training |
-| `-dataset_projection_train` | `dataset_objectsFixation64` | Dataset for linear probe training |
-| `-dataset_test` | `dataset_objectsFixation64` | Dataset for linear probe evaluation |
+| `--data` | `./data` | Path to the dataset root |
+| `--dataset-model-train` | `infant_fixation` | Dataset used for self-supervised pretraining |
+| `--dataset-projection-train` | `objects_train` | Labeled object fixation training split for linear probe |
+| `--dataset-test` | `objects_test` | Labeled object fixation test split |
+| `--crop-size` | `128` | Crop size in pixels |
 | `--arch` | `resnet18` | Backbone architecture |
 | `--epochs` | `100` | Number of training epochs |
 | `--batch-size` | `256` | Batch size |
-| `--lr` | `0.0005` | Learning rate (AdamW) |
-| `--temperature` | `0.07` | Loss temperature |
-| `--out_dim` | `128` | Projection head output dimension |
+| `--lr` | `1e-2` | AdamW learning rate |
+| `--weight-decay` | `1e-4` | AdamW weight decay |
+| `--temperature` | `0.08` | SimCLR-TT temperature |
+| `--out-dim` | `128` | Projection head output dimension |
 | `--disable-cuda` | `False` | Force CPU training |
 
 
