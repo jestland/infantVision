@@ -25,9 +25,8 @@ infantVision/
 
 ---
 
-## Key Components
 
-### Dataset Variants
+## Dataset Variants
 
 The framework supports multiple fixation-guided cropping strategies, selectable via command-line arguments:
 
@@ -39,7 +38,7 @@ The framework supports multiple fixation-guided cropping strategies, selectable 
 | `dataset_randomFixation` | Random crop baseline |
 | `dataset_plainBackground` | Plain background, no fixation bias |
 
-### Model Architecture
+## Model Architecture
 
 `ResNetSimCLR` uses a ResNet backbone (default: `resnet18`) with a projection head that outputs 128-dimensional embeddings. During training, both a **representation** and a **projection** are returned; the projection is used for the contrastive loss.
 
