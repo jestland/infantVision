@@ -118,7 +118,7 @@ python main.py \
 
 ## Data Availability
 
-The dataset used in this research cannot be made publicly available due to privacy policies. For related work on infant/toddler visual data collection, please refer to:
+The dataset used in this research cannot be made publicly available due to privacy policies. For related work on toddler/adult visual data collection, please refer to:
 
 ```bibtex
 @article{bambach2018toddler,
