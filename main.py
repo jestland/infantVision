@@ -1,83 +1,170 @@
 import argparse
+from pathlib import Path
+
 import torch
 import torch.backends.cudnn as cudnn
-from data_aug.dataloader import dataset_infantFixation64, train_dataset_objectsFixation64, test_dataset_objectsFixation64
-from models.simclr import ResNetSimCLR
-from simclrbuilder import SimCLR
 from torch.utils.data import DataLoader
 
+from data_aug.dataloader import build_dataset
+from models.simclr import ResNetSimCLR
+from simclrbuilder import SimCLR
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-data', default='./data')
-# parser.add_argument('--data_organizing', default='shift', type=str, choices=['origin', 'shift', 'remove']
-parser.add_argument('-dataset_model_train', default='dataset_infantFixation64',
-                    choices=['dataset_plainBackground64', 'dataset_plainBackground128',
-                             'dataset_objectsFixation64', 'dataset_objectsFixation128',
-                             'dataset_randomFixation64', 'dataset_randomFixation128',
-                             'dataset_centroidFixation64', 'dataset_centroidFixation128',
-                             'dataset_centroidFixation240', 'dataset_centroidFixation480',
-                             'dataset_infantFixation64', 'dataset_infantFixation128'])
-parser.add_argument('-dataset_projection_train', default='dataset_objectsFixation64',
-                    choices=['dataset_objectsFixation64', 'dataset_objectsFixation128'])
-parser.add_argument('-dataset_test', default='dataset_objectsFixation64',
-                    choices=['dataset_objectsFixation64', 'dataset_plainBackground128'])
-parser.add_argument('-a', '--arch', default='resnet18')
-parser.add_argument('-j', '--workers', default=8)
-parser.add_argument('--epochs', default=100)
-parser.add_argument('-b', '--batch-size', default=256)
-parser.add_argument('--lr', '--learning-rate', default=0.0005, type=float,
-                    metavar='LR', help='initial learning rate', dest='lr', choices=[0.0001, 0.0005, 0.001, 0.01, 0.1, 0.5])
-parser.add_argument('--wd', '--weight-decay', default=0.000005, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)',
-                    dest='weight_decay', choices=[0.000001, 0.000005, 0.00001, 0.0001, 0.001, 0.005])
-parser.add_argument('--seed', default=None, type=int,
-                    help='seed for initializing training. ')
-parser.add_argument('--disable-cuda', action='store_true',
-                    help='Disable CUDA')
-parser.add_argument('--out_dim', default=128, type=int,
-                    help='feature dimension (default: 128)')
-parser.add_argument('--log-every-n-steps', default=100, type=int,
-                    help='Log every n steps')
-parser.add_argument('--temperature', default=0.07, type=float,
-                    help='softmax temperature (default: 0.07)', choices=[0.05, 0.08, 0.1, 0.2, 0.5, 1])
-# parser.add_argument('--skip_frame', default=0, type=float,
-#                     help='skip select number of frames', choices=[0, 5, 10, 20, 30, 45, 60, 90, 120])
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--data", default="./data", type=str)
+
+    parser.add_argument(
+        "--dataset-model-train",
+        default="infant_fixation",
+        choices=[
+            "infant_fixation",
+            "random_fixation",
+            "center_fixation",
+            "objects_train",
+        ],
+    )
+
+    parser.add_argument(
+        "--dataset-projection-train",
+        default="objects_train",
+        choices=["objects_train"],
+    )
+
+    parser.add_argument(
+        "--dataset-test",
+        default="objects_test",
+        choices=["objects_test"],
+    )
+
+    parser.add_argument("--crop-size", default=128, type=int)
+    parser.add_argument("-a", "--arch", default="resnet18")
+    parser.add_argument("-j", "--workers", default=8, type=int)
+    parser.add_argument("--epochs", default=100, type=int)
+    parser.add_argument("-b", "--batch-size", default=256, type=int)
+    parser.add_argument("--gpu-index", default=0, type=int)
+
+    # Match paper appendix defaults
+    parser.add_argument("--lr", default=1e-2, type=float)
+    parser.add_argument("--weight-decay", default=1e-4, type=float)
+    parser.add_argument("--temperature", default=0.08, type=float)
+
+    parser.add_argument("--seed", default=None, type=int)
+    parser.add_argument("--disable-cuda", action="store_true")
+    parser.add_argument("--out-dim", default=128, type=int)
+    parser.add_argument("--log-every-n-steps", default=100, type=int)
+
+    return parser.parse_args()
+
+
+def set_seed(seed):
+    if seed is None:
+        cudnn.deterministic = False
+        cudnn.benchmark = True
+        return
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    cudnn.deterministic = True
+    cudnn.benchmark = False
+
+
+def get_device(args):
+    if not args.disable_cuda and torch.cuda.is_available():
+        device = torch.device(f"cuda:{args.gpu_index}")
+        torch.cuda.set_device(device)
+        return device
+
+    return torch.device("cpu")
+
+
+def make_loader(dataset, args, shuffle, drop_last):
+    return DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=args.device.type == "cuda",
+        drop_last=drop_last,
+    )
 
 
 def main():
-    args = parser.parse_args()
-    # check if gpu training is available
-    if not args.disable_cuda and torch.cuda.is_available():
-        args.device = torch.device('cuda')
-        cudnn.deterministic = True
-        cudnn.benchmark = True
-    else:
-        args.device = torch.device('cpu')
-        args.gpu_index = -1
+    args = parse_args()
+    args.data = Path(args.data)
+    args.device = get_device(args)
 
-    if args.dataset_model_train == 'dataset_infantFixation64':
-        model_train_dataset = dataset_infantFixation64
-    if args.dataset_projection_train == 'dataset_objectsFixation64':
-        projection_train_dataset = train_dataset_objectsFixation64
-    if args.dataset_test == 'dataset_objectsFixation64':
-        test_dataset = test_dataset_objectsFixation64
+    set_seed(args.seed)
 
+    model_train_dataset = build_dataset(
+        name=args.dataset_model_train,
+        data_root=args.data,
+        crop_size=args.crop_size,
+    )
 
-    model_train_loader = DataLoader(model_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
-    projection_train_loader = DataLoader(projection_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, )
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+    projection_train_dataset = build_dataset(
+        name=args.dataset_projection_train,
+        data_root=args.data,
+        crop_size=args.crop_size,
+    )
 
-    model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
+    test_dataset = build_dataset(
+        name=args.dataset_test,
+        data_root=args.data,
+        crop_size=args.crop_size,
+    )
 
-    optimizer = torch.optim.AdamW(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    # criterion = torch.nn.CrossEntropyLoss().to(args.device)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(model_train_dataset), eta_min=0,
-                                                           last_epoch=-1)
+    model_train_loader = make_loader(
+        model_train_dataset,
+        args=args,
+        shuffle=True,
+        drop_last=True,
+    )
 
-    with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(model_train_loader, projection_train_loader, test_loader)
+    projection_train_loader = make_loader(
+        projection_train_dataset,
+        args=args,
+        shuffle=True,
+        drop_last=False,
+    )
 
+    test_loader = make_loader(
+        test_dataset,
+        args=args,
+        shuffle=False,
+        drop_last=False,
+    )
+
+    model = ResNetSimCLR(
+        base_model=args.arch,
+        out_dim=args.out_dim,
+    ).to(args.device)
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=args.epochs,
+        eta_min=0,
+    )
+
+    simclr = SimCLR(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        args=args,
+    )
+
+    simclr.train(
+        model_train_loader,
+        projection_train_loader,
+        test_loader,
+    )
 
 
 if __name__ == "__main__":
